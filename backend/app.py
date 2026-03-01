@@ -1,13 +1,14 @@
 from medicine_info import MEDICINE_DATABASE
 import os
 import re
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, send_from_directory
 from flask_cors import CORS
 from google.cloud import vision
 from pyzbar.pyzbar import decode
 import cv2
 import numpy as np
 import requests
+from gtts import gTTS # Added for Audio Feature
 
 # ---------------- ENV ----------------
 os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = "../credentials/google_vision.json"
@@ -15,7 +16,27 @@ os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = "../credentials/google_vision.jso
 app = Flask(__name__)
 CORS(app)
 
+# Ensure the static folder exists for the audio file
+if not os.path.exists('static'):
+    os.makedirs('static')
+
 vision_client = vision.ImageAnnotatorClient()
+
+# ---------------- AUDIO FEATURE ----------------
+def play_report_audio(report_text):
+    # Convert text to speech
+    tts = gTTS(text=report_text, lang='en')
+    
+    # Save the audio file in the static directory
+    audio_path = "static/report_audio.mp3"
+    tts.save(audio_path)
+    
+    return "http://localhost:5000/" + audio_path
+
+# Route to serve the audio file to the frontend
+@app.route('/static/<path:path>')
+def send_static(path):
+    return send_from_directory('static', path)
 
 # ---------------- OCR ----------------
 def extract_text(image_bytes):
@@ -106,7 +127,6 @@ def fetch_from_openfda(medicine_name):
 def get_medicine_image(medicine_name):
     try:
         # Simple Google image placeholder approach
-        # You can replace with real medicine image API later
         return f"https://source.unsplash.com/600x400/?medicine,{medicine_name}"
     except:
         return None
@@ -144,20 +164,23 @@ def predict():
     if not med_data:
         med_data = MEDICINE_DATABASE.get(medicine.upper(), {})
     
-
     image_url = get_medicine_image(medicine)
+
+    # Generate Audio Report
+    report = f"The medicine identified is {medicine}. The result is {status} with {confidence} confidence."
+    audio_url = play_report_audio(report)
 
     return jsonify({
         "medicine_name": medicine,
         "medicine_info": med_data,
         "image_url": image_url,
+        "report": report,
+        "audio_url": audio_url,
         "status": status,
         "confidence": confidence
     })
 
 # ---------------- VIDEO SCAN (ROTATION SUPPORT) ----------------
-
-
 @app.route("/scan-video", methods=["POST"])
 def scan_video():
     frames = request.files.getlist("frames")
@@ -190,11 +213,8 @@ def scan_video():
 
     # 🔥 MERGE MEDICINE DATABASE DATA
     raw_name = (found["medicine"] or "").upper()
-
-    # 🔥 NORMALIZATION FIX
     med_key = raw_name.replace("®", "").replace("™", "").strip()
 
-    # 🔥 SMART MATCH (partial + exact)
     # 🔥 Try OpenFDA first
     med_info = fetch_from_openfda(found["medicine"])
 
@@ -212,23 +232,26 @@ def scan_video():
         "expiry": found["expiry"],
         "barcode": found["barcode"]
     }
-    print("FINAL MED KEY:", med_key)
-    print("FOUND MED INFO:", MEDICINE_DATABASE.get(med_key))
     
-    image_url = get_medicine_image(found["medicine"])
-    image_url = None
     if found["medicine"]:
-            image_url = f"https://source.unsplash.com/600x400/?medicine,{found['medicine']}"
+        image_url = f"https://source.unsplash.com/600x400/?medicine,{found['medicine']}"
+    else:
+        image_url = None
+
+    # Generate Audio Report for Video Scan
+    report = f"Scan complete. Medicine identified as {found['medicine'] or 'Unknown'}."
+    audio_url = play_report_audio(report)
     
     return jsonify({
         "medicine": found["medicine"],
         "image_url": image_url, 
+        "report": report,
+        "audio_url": audio_url,
         "medicine_info": {**med_info,
         "batch": found["batch"],
         "expiry": found["expiry"],
         "barcode": found["barcode"]
     },
-    
 })
 
 # ---------------- RUN ----------------
