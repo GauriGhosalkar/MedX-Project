@@ -1,0 +1,6 @@
+flask
+flask-cors
+google-cloud-vision
+pillow
+pip install plyer
+pip install requests

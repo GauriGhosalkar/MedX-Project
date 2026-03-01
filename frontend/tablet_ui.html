@@ -1,0 +1,977 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>MedX | Forensic Verification</title>
+    
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.31/jspdf.plugin.autotable.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+    
+    <style>
+        :root {
+            /* SPOTIFY THEME */
+            --primary: #1ed760;
+            --primary-hover: #1fdf64;
+            --bg-deep: #000000;
+            --bg-surface: #121212;
+            --bg-card: #181818;
+            --bg-card-hover: #282828;
+            --text-main: #FFFFFF;
+            --text-muted: #b3b3b3;
+            --danger: #e91429;
+            --sidebar-width: 240px;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+        
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: var(--bg-deep);
+            color: var(--text-main);
+            height: 100vh;
+            display: flex;
+            overflow: hidden;
+        }
+
+        /* --- RESPONSIVE UTILS --- */
+        .desktop-only { display: none !important; }
+        .mobile-only { display: flex !important; }
+        @media (min-width: 768px) {
+            .desktop-only { display: flex !important; }
+            .mobile-only { display: none !important; }
+        }
+
+        /* --- HIGH-TECH SPLASH SCREEN --- */
+        #splash-screen {
+            position: fixed; inset: 0; z-index: 100000;
+            background: radial-gradient(circle at center, #111 0%, #000 100%);
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            transition: opacity 0.8s cubic-bezier(0.8, 0, 0.2, 1), transform 0.8s cubic-bezier(0.8, 0, 0.2, 1);
+            overflow: hidden;
+        }
+        
+        /* 3D Cyber Grid Floor */
+        #splash-screen::before {
+            content: ''; position: absolute; inset: -50%;
+            background-image: 
+                linear-gradient(rgba(30, 215, 96, 0.08) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(30, 215, 96, 0.08) 1px, transparent 1px);
+            background-size: 50px 50px;
+            transform: perspective(500px) rotateX(60deg);
+            animation: gridMove 5s linear infinite;
+            pointer-events: none;
+        }
+        @keyframes gridMove {
+            0% { transform: perspective(500px) rotateX(60deg) translateY(0); }
+            100% { transform: perspective(500px) rotateX(60deg) translateY(50px); }
+        }
+
+        .splash-logo-container {
+            position: relative;
+            background: white; padding: 30px 45px; border-radius: 24px; margin-bottom: 40px;
+            box-shadow: 0 0 50px rgba(30, 215, 96, 0.2), inset 0 0 20px rgba(0,0,0,0.1);
+            animation: floatSplash 4s ease-in-out infinite;
+            z-index: 2; overflow: hidden;
+        }
+        .splash-logo-container img { 
+            height: 90px; /* Zoomed in */
+            width: auto; object-fit: contain; 
+            position: relative; z-index: 1;
+        }
+        
+        /* Laser Scan Effect */
+        .splash-logo-container::after {
+            content: ''; position: absolute; top: -50%; left: -50%; width: 200%; height: 4px;
+            background: var(--primary); box-shadow: 0 0 20px 4px var(--primary);
+            animation: scanLogo 2s ease-in-out infinite alternate;
+            z-index: 2; opacity: 0.8;
+        }
+        @keyframes scanLogo {
+            0% { transform: translateY(0) rotate(5deg); }
+            100% { transform: translateY(180px) rotate(-5deg); }
+        }
+        @keyframes floatSplash {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-15px); box-shadow: 0 15px 60px rgba(30, 215, 96, 0.4); }
+        }
+
+        /* Terminal Loading Text */
+        .splash-text-wrapper {
+            z-index: 2; display: flex; align-items: center; gap: 10px;
+        }
+        .splash-text {
+            color: var(--primary); font-family: 'JetBrains Mono', monospace; font-size: 1rem; 
+            letter-spacing: 2px; text-transform: uppercase; font-weight: 700;
+        }
+        .cursor-blink {
+            width: 10px; height: 15px; background: var(--primary);
+            animation: blink 1s step-end infinite;
+        }
+        @keyframes blink { 50% { opacity: 0; } }
+
+        /* Exit animation */
+        #splash-screen.hidden { opacity: 0; transform: scale(1.1); pointer-events: none; }
+
+        /* --- AUTHENTICATION --- */
+        #auth-wrapper {
+            position: fixed; inset: 0; z-index: 9999;
+            background: linear-gradient(180deg, #1e1e1e 0%, #000000 100%);
+            display: flex; align-items: center; justify-content: center;
+            transition: opacity 0.5s ease;
+        }
+        
+        .auth-card {
+            background: var(--bg-surface); padding: 40px; width: 90%; max-width: 400px;
+            border-radius: 8px; text-align: center; border: 1px solid #333;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.5);
+        }
+
+        .auth-card h1 { font-size: 1.8rem; margin-bottom: 30px; letter-spacing: -0.5px; }
+
+        .input-group { margin-bottom: 20px; text-align: left; }
+        .input-group label { display: block; font-size: 0.8rem; font-weight: 700; color: var(--text-main); margin-bottom: 8px; }
+        
+        .input-wrapper { position: relative; }
+        .input-group input {
+            width: 100%; padding: 14px; background: #222; border: 1px solid transparent;
+            border-radius: 4px; color: white; font-size: 1rem; transition: 0.2s;
+        }
+        .input-group input:focus { border-color: var(--primary); background: #2a2a2a; outline: none; }
+        .input-group input.error-border { border-color: var(--danger); }
+        
+        .error-msg { color: var(--danger); font-size: 0.8rem; margin-top: 5px; display: none; }
+        .error-msg.visible { display: block; animation: shake 0.3s ease; }
+        @keyframes shake { 0%{transform:translateX(0)} 25%{transform:translateX(-5px)} 75%{transform:translateX(5px)} 100%{transform:translateX(0)} }
+
+        .password-toggle { position: absolute; right: 15px; top: 50%; transform: translateY(-50%); cursor: pointer; color: var(--text-muted); padding: 5px; }
+        .password-toggle:hover { color: white; }
+
+        .btn-auth {
+            width: 100%; padding: 14px; border-radius: 50px; border: none;
+            background: var(--primary); color: black; font-weight: 700; cursor: pointer;
+            font-size: 1rem; text-transform: uppercase; letter-spacing: 1px; margin-top: 10px;
+            transition: transform 0.1s;
+        }
+        .btn-auth:active { transform: scale(0.98); }
+        .link-text { margin-top: 20px; color: var(--text-muted); font-size: 0.85rem; cursor: pointer; text-decoration: underline; }
+
+        /* --- LAYOUT --- */
+        aside.sidebar {
+            width: var(--sidebar-width); background: var(--bg-deep); display: flex; flex-direction: column; padding: 24px; border-right: 1px solid #222;
+        }
+        .brand { display: flex; align-items: center; margin-bottom: 40px; background: white; padding: 10px; border-radius: 8px; justify-content: center; }
+        .brand img { height: 35px; width: auto; object-fit: contain; }
+
+        .nav-btn { display: flex; align-items: center; gap: 16px; padding: 12px 16px; color: var(--text-muted); border-radius: 4px; font-weight: 700; cursor: pointer; transition: 0.2s; margin-bottom: 8px; }
+        .nav-btn:hover { color: white; background: #222; }
+        .nav-btn.active { color: white; background: #282828; }
+
+        .bottom-nav { position: fixed; bottom: 0; left: 0; width: 100%; background: rgba(18, 18, 18, 0.95); backdrop-filter: blur(10px); border-top: 1px solid #282828; display: flex; justify-content: space-around; padding: 10px 0; z-index: 100; padding-bottom: max(15px, env(safe-area-inset-bottom)); }
+        .nav-item-m { display: flex; flex-direction: column; align-items: center; gap: 4px; color: var(--text-muted); background: none; border: none; font-size: 0.7rem; font-weight: 600; }
+        .nav-item-m.active { color: var(--primary); }
+
+        main { flex: 1; background: linear-gradient(180deg, #1f1f1f 0%, var(--bg-surface) 30%); padding: 24px; overflow-y: auto; padding-bottom: 100px; }
+        .screen { display: none; animation: fadeUp 0.4s ease; }
+        .screen.active { display: block; }
+        @keyframes fadeUp { from{opacity:0;transform:translateY(20px);} to{opacity:1;transform:translateY(0);} }
+
+        /* --- DASHBOARD --- */
+        .header-bar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px; }
+        .mobile-brand { background: white; padding: 5px 10px; border-radius: 6px; display: flex; align-items: center; }
+        .mobile-brand img { height: 25px; width: auto; }
+        
+        .user-pill { background: rgba(0,0,0,0.6); padding: 4px 12px 4px 4px; border-radius: 20px; display: flex; align-items: center; gap: 10px; cursor: pointer; border: 1px solid #333; }
+        .avatar { width: 28px; height: 28px; background: #333; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 700; color: white; }
+
+        .grid-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 24px; }
+        .card { background: var(--bg-card); padding: 24px; border-radius: 8px; transition: 0.3s ease; cursor: default; }
+        .card:hover { background: var(--bg-card-hover); transform: translateY(-3px); }
+        .card h3 { color: var(--text-muted); font-size: 0.85rem; margin-bottom: 10px; text-transform: uppercase; letter-spacing: 0.5px; }
+        .card .stat { font-size: 2.2rem; font-weight: 700; color: white; }
+
+        .quick-actions { display: flex; gap: 10px; margin-top: 30px; overflow-x: auto; padding-bottom: 5px; }
+        .action-chip { background: #333; padding: 8px 20px; border-radius: 20px; font-size: 0.9rem; cursor: pointer; white-space: nowrap; font-weight: 600; }
+        .action-chip:hover { background: #444; color: white; }
+
+        /* --- SCANNER --- */
+        .scanner-wrapper { position: relative; width: 100%; max-width: 500px; margin: 0 auto; background: black; border-radius: 12px; overflow: hidden; box-shadow: 0 10px 40px rgba(0,0,0,0.5); aspect-ratio: 3/4; }
+        video { width: 100%; height: 100%; object-fit: cover; }
+        .scan-line { position: absolute; top: 0; left: 0; width: 100%; height: 2px; background: var(--primary); box-shadow: 0 0 20px var(--primary); opacity: 0; pointer-events: none; }
+        .scanning .scan-line { opacity: 1; animation: scanCam 2s linear infinite; }
+        @keyframes scanCam { 0%{top:0%} 100%{top:100%} }
+        .capture-btn { position: absolute; bottom: 30px; left: 50%; transform: translateX(-50%); width: 70px; height: 70px; border-radius: 50%; background: transparent; border: 4px solid white; cursor: pointer; z-index: 10; }
+        .capture-btn:active { transform: translateX(-50%) scale(0.9); }
+        .capture-btn::after { content: ''; position: absolute; inset: 5px; background: white; border-radius: 50%; }
+        .upload-btn { position: absolute; right: 20px; bottom: 40px; width: 45px; height: 45px; background: rgba(255,255,255,0.2); border-radius: 50%; display: flex; align-items: center; justify-content: center; cursor: pointer; font-size: 1.2rem; }
+
+        /* --- LOGS --- */
+        .log-item { display: flex; justify-content: space-between; align-items: center; padding: 16px; background: var(--bg-card); border-radius: 4px; margin-bottom: 8px; transition: 0.2s; cursor: pointer; border: 1px solid transparent; }
+        .log-item:hover { background: var(--bg-card-hover); border-color: #333; }
+        .tag { padding: 4px 8px; border-radius: 4px; font-size: 0.75rem; font-weight: 700; text-transform: uppercase; color: black; }
+        .tag.genuine { background: var(--primary); }
+        .tag.counterfeit { background: var(--danger); color: white; }
+
+        /* --- MODALS --- */
+        .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.85); z-index: 2000; display: none; align-items: center; justify-content: center; }
+        .modal-overlay.active { display: flex; }
+
+        .profile-card { background: #181818; padding: 40px; border-radius: 16px; width: 90%; max-width: 350px; text-align: center; border: 1px solid #333; }
+        .profile-pic-large { width: 90px; height: 90px; background: #333; border-radius: 50%; margin: 0 auto 20px; display: flex; align-items: center; justify-content: center; font-size: 2.2rem; font-weight: 700; border: 2px solid var(--primary); }
+        .detail-row { display: flex; justify-content: space-between; margin-bottom: 15px; font-size: 0.9rem; border-bottom: 1px solid #222; padding-bottom: 8px; }
+
+        .result-card { background: #181818; width: 100%; border-radius: 16px; padding: 30px; max-width: 400px; position: relative; max-height: 90vh; overflow-y: auto; }
+        .close-icon { position: absolute; top: 15px; right: 20px; font-size: 1.5rem; cursor: pointer; color: #777; }
+        .evidence-img { width: 100%; height: 180px; object-fit: contain; background: #000; margin-bottom: 20px; border-radius: 8px; }
+
+        .toast { position: fixed; bottom: 80px; left: 50%; transform: translateX(-50%); background: var(--primary); color: black; padding: 12px 24px; border-radius: 30px; font-weight: 700; opacity: 0; transition: 0.3s; pointer-events: none; z-index: 5000; }
+        .toast.error { background: var(--danger); color: white; }
+        .toast.visible { opacity: 1; bottom: 100px; }
+
+        /* 🔴 Recording state */
+        .capture-btn.recording {
+            border-color: #e91429;
+        }
+
+        .capture-btn.recording::after {
+            background: #e91429;
+            animation: pulse 1s infinite;
+        }
+
+        @keyframes pulse {
+            0%   { transform: scale(1); opacity: 1; }
+            50%  { transform: scale(0.85); opacity: 0.7; }
+            100% { transform: scale(1); opacity: 1; }
+        }
+    </style>
+</head>
+<body>
+
+    <div id="splash-screen">
+        <div class="splash-logo-container">
+            <img src="1000226549.png" alt="MedX Logo">
+        </div>
+        <div class="splash-text-wrapper">
+            <span class="splash-text" id="splash-text">ESTABLISHING CONNECTION</span>
+            <span class="cursor-blink"></span>
+        </div>
+    </div>
+
+    <div id="toast" class="toast">Message</div>
+
+    <div id="auth-wrapper" style="opacity: 0; pointer-events: none;"> 
+        <div id="login-form" class="auth-card">
+            <div style="background:white; padding:10px; border-radius:8px; display:inline-block; margin-bottom:20px;">
+                <img src="1000226549.png" alt="MedX" style="height:30px;">
+            </div>
+            <h1>Log In</h1>
+            
+            <div class="input-group">
+                <label>Username</label>
+                <input type="text" id="username" placeholder="admin">
+                <div id="err-login-user" class="error-msg">Username is required</div>
+            </div>
+            
+            <div class="input-group">
+                <label>Password</label>
+                <div class="input-wrapper">
+                    <input type="password" id="password" placeholder="admin123">
+                    <div class="password-toggle" onclick="togglePassword('password', this)">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+                    </div>
+                </div>
+                <div id="err-login-pass" class="error-msg">Password is required</div>
+            </div>
+            
+            <div id="err-login-general" class="error-msg" style="margin-bottom:15px; font-size:0.9rem;">Invalid Username or Password</div>
+            
+            <button class="btn-auth" onclick="handleLogin()">Log In</button>
+            <p class="link-text" onclick="toggleAuth('register')">Create an account</p>
+        </div>
+
+        <div id="register-form" class="auth-card" style="display:none;">
+            <div style="background:white; padding:10px; border-radius:8px; display:inline-block; margin-bottom:20px;">
+                <img src="1000226549.png" alt="MedX" style="height:30px;">
+            </div>
+            <h1>Sign Up</h1>
+            
+            <div class="input-group">
+                <label>Username</label>
+                <input type="text" id="reg-user" placeholder="Min 3 chars">
+                <div id="err-reg-user" class="error-msg">Min 3 characters required</div>
+            </div>
+            
+            <div class="input-group">
+                <label>Email</label>
+                <input type="email" id="reg-email" placeholder="name@domain.com">
+                <div id="err-reg-email" class="error-msg">Invalid email format</div>
+            </div>
+            
+            <div class="input-group">
+                <label>Password</label>
+                <div class="input-wrapper">
+                    <input type="password" id="reg-pass" placeholder="Min 6 chars">
+                    <div class="password-toggle" onclick="togglePassword('reg-pass', this)">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+                    </div>
+                </div>
+                <div id="err-reg-pass" class="error-msg">Min 6 characters required</div>
+            </div>
+            
+            <button class="btn-auth" onclick="handleRegister()">Sign Up</button>
+            <p class="link-text" onclick="toggleAuth('login')">Back to Login</p>
+        </div>
+    </div>
+
+    <aside class="sidebar desktop-only">
+        <div class="brand"><img src="1000226549.png" alt="MedX Logo"></div>
+        <div class="nav-btn active" onclick="nav('home')">Dashboard</div>
+        <div class="nav-btn" onclick="nav('scan')">Scanner</div>
+        <div class="nav-btn" onclick="nav('logs')">History</div>
+        <div style="margin-top:auto; color:var(--danger); cursor:pointer; font-weight:600;" onclick="location.reload()">Log Out</div>
+    </aside>
+
+    <main>
+        <div class="header-bar mobile-only">
+            <div class="mobile-brand"><img src="1000226549.png" alt="MedX"></div>
+            <div class="user-pill" onclick="openProfile()">
+                <div class="avatar" id="header-av-m">U</div>
+            </div>
+        </div>
+
+        <div class="header-bar desktop-only">
+            <h2 style="font-weight:700;">Overview</h2>
+            <div class="user-pill" onclick="openProfile()">
+                <div class="avatar" id="header-av">U</div>
+                <span id="user-display">User</span>
+            </div>
+        </div>
+
+        <div id="tab-home" class="screen active">
+            <div class="grid-cards">
+                <div class="card">
+                    <h3>Scans Today</h3>
+                    <div class="stat" id="stat-scans">0</div>
+                </div>
+                <div class="card">
+                    <h3>Defects</h3>
+                    <div class="stat" style="color:var(--danger)" id="stat-defects">0</div>
+                </div>
+                <div class="card">
+                    <h3>Status</h3>
+                    <div class="stat" style="color:var(--primary); font-size:1.5rem; line-height:40px;">ONLINE</div>
+                </div>
+            </div>
+
+            <div class="quick-actions">
+                <div class="action-chip" onclick="nav('scan')">+ New Scan</div>
+                <div class="action-chip" onclick="exportHistoryPDF()">Export Log (PDF)</div>
+                <div class="action-chip" onclick="toast('System Calibrated')">Calibrate</div>
+            </div>
+
+            <div style="margin-top:40px;">
+                <h3 style="color:white; margin-bottom:15px;">Recent Scans</h3>
+                <div id="recent-list">
+                    <div style="color:#555; font-size:0.9rem;">No recent activity.</div>
+                </div>
+            </div>
+        </div>
+
+        <div id="tab-scan" class="screen">
+            <div class="scanner-wrapper" id="scanner-ui">
+                <video id="video" autoplay playsinline muted></video>
+                <canvas id="canvas" style="display:none;"></canvas>
+                <div class="scan-line"></div>
+                <div class="capture-btn" onclick="scanVideoFrames()"></div>
+                <div class="upload-btn" onclick="document.getElementById('file-in').click()">📁</div>
+                <input type="file" id="file-in" accept="image/*" style="display:none" onchange="fileUpload(this)">
+            </div>
+            <p style="text-align:center; margin-top:20px; color:#777; font-size:0.8rem;">Tap circle to capture or folder to upload.</p>
+        </div>
+
+        <div id="tab-logs" class="screen">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
+                <h2>History</h2>
+                <button onclick="exportHistoryPDF()" style="background:none; border:1px solid #333; color:var(--primary); padding:6px 12px; border-radius:4px; cursor:pointer;">Export PDF</button>
+            </div>
+            <div id="log-list">
+                <div style="text-align:center; padding:30px; color:#555;">No records yet</div>
+            </div>
+        </div>
+    </main>
+
+    <nav class="bottom-nav mobile-only">
+        <button class="nav-item-m active" onclick="nav('home')"><span>🏠</span>Home</button>
+        <button class="nav-item-m" onclick="nav('scan')"><span>📷</span>Scan</button>
+        <button class="nav-item-m" onclick="nav('logs')"><span>📝</span>Logs</button>
+    </nav>
+
+    <div id="profile-modal" class="modal-overlay" onclick="closeModal(event, 'profile-modal')">
+        <div class="profile-card">
+            <div class="profile-pic-large" id="profile-av">U</div>
+            <h2 id="profile-name" style="margin-bottom:5px;">User</h2>
+            <p style="color:var(--primary); margin-bottom:30px; font-weight:600;">Forensic Analyst</p>
+            <div class="detail-row"><span style="color:#777">Email</span><span id="profile-email">user@medx.com</span></div>
+            <div class="detail-row"><span style="color:#777">ID</span><span>MX-8821</span></div>
+            <div class="detail-row" style="border:none;"><span style="color:#777">Role</span><span>Admin</span></div>
+            <button class="btn-auth" style="background:#333; color:#ff4d4d; margin-top:20px;" onclick="location.reload()">Sign Out</button>
+        </div>
+    </div>
+
+    <div id="result-modal" class="modal-overlay">
+        <div class="result-card">
+            <span class="close-icon" onclick="closeModal(null, 'result-modal')">&times;</span>
+            <h2 id="res-title" style="margin-bottom:20px;">Result</h2>
+            <img id="res-img" class="evidence-img" src="" alt="Scan">
+            <div id="res-details" style="background:#222; padding:15px; border-radius:8px; margin-bottom:20px; line-height:1.6; color:#ccc; font-size:0.9rem;"></div>
+            <button class="btn-auth" onclick="downloadSingleReport()">Download Report</button>
+        </div>
+    </div>
+
+    <script>
+        // --- SPLASH SCREEN LOGIC ---
+        window.addEventListener('load', () => {
+            const txt = document.getElementById('splash-text');
+            
+            // Terminal Typing sequence
+            setTimeout(() => txt.innerText = "LOADING FORENSIC MODULES...", 1000);
+            setTimeout(() => txt.innerText = "CALIBRATING AI SCANNER...", 2000);
+            setTimeout(() => txt.innerText = "SYSTEM READY", 3000);
+
+            // Fade out
+            setTimeout(() => {
+                document.getElementById('splash-screen').classList.add('hidden');
+                document.getElementById('auth-wrapper').style.opacity = '1';
+                document.getElementById('auth-wrapper').style.pointerEvents = 'all';
+            }, 3600); 
+        });
+
+        // --- STATE ---
+        let scans=0, defects=0, history=[], currentResult=null, currentUser={};
+        
+        // --- AUTH LOGIC ---
+        function toggleAuth(mode) {
+            document.getElementById('login-form').style.display = mode==='login'?'block':'none';
+            document.getElementById('register-form').style.display = mode==='register'?'block':'none';
+            resetErrors();
+        }
+
+        function togglePassword(id, icon) {
+            const el = document.getElementById(id);
+            if(el.type === "password"){
+                el.type = "text";
+                icon.innerHTML = `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path><line x1="1" y1="1" x2="23" y2="23"></line></svg>`;
+            } else {
+                el.type = "password";
+                icon.innerHTML = `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>`;
+            }
+        }
+
+        function resetErrors() {
+            document.querySelectorAll('.error-msg').forEach(e => e.classList.remove('visible'));
+            document.querySelectorAll('input').forEach(i => i.classList.remove('error-border'));
+        }
+
+        function showErr(id) {
+            const el = document.getElementById(id);
+            el.classList.add('visible');
+            if(el.previousElementSibling && el.previousElementSibling.tagName === 'INPUT') {
+                el.previousElementSibling.classList.add('error-border');
+            } else if (el.previousElementSibling && el.previousElementSibling.classList.contains('input-wrapper')) {
+                el.previousElementSibling.querySelector('input').classList.add('error-border');
+            }
+        }
+
+        async function handleLogin() {
+            resetErrors();
+            const username = document.getElementById('username').value.trim();
+            const password = document.getElementById('password').value.trim();
+            
+            let valid = true;
+            if(!username) { showErr('err-login-user'); valid=false; }
+            if(!password) { showErr('err-login-pass'); valid=false; }
+            if(!valid) return;
+
+            try {
+                const response = await fetch("http://localhost:5000/api/login", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ username, password })
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    enterApp(data.user);
+                    toast('Welcome back, ' + data.user.u);
+                } else {
+                    showErr('err-login-general');
+                    toast(data.message, 'error');
+                }
+            } catch (error) {
+                toast('Connection failed. Is the server running?', 'error');
+            }
+        }
+
+        async function handleRegister() {
+    resetErrors();
+    const username = document.getElementById('reg-user').value.trim();
+    const email = document.getElementById('reg-email').value.trim();
+    const password = document.getElementById('reg-pass').value.trim();
+
+    let valid = true;
+    if(username.length < 3) { showErr('err-reg-user'); valid = false; }
+    if(!email.includes('@') || !email.includes('.')) { showErr('err-reg-email'); valid = false; }
+    if(password.length < 6) { showErr('err-reg-pass'); valid = false; }
+    if(!valid) return;
+
+    try {
+        const response = await fetch("http://localhost:5000/api/register", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ username, email, password })
+        });
+
+        const data = await response.json();
+
+        if (response.ok) {
+            // SUCCESS: Instead of entering the app, we show the login form
+            toast('Account Created! Please log in.');
+            
+            // Switch the UI back to the login form
+            toggleAuth('login');
+            
+            // Optional: Auto-fill the username for them
+            document.getElementById('username').value = username;
+            document.getElementById('password').value = "";
+        } else {
+            toast(data.message, 'error');
+        }
+    } catch (error) {
+        toast('Server unreachable', 'error');
+    }
+}
+
+        function enterApp(user) {
+            currentUser = user;
+            document.getElementById('user-display').innerText = user.u;
+            document.getElementById('header-av').innerText = user.u[0].toUpperCase();
+            document.getElementById('header-av-m').innerText = user.u[0].toUpperCase();
+            
+            document.getElementById('profile-name').innerText = user.u;
+            document.getElementById('profile-email').innerText = user.e;
+            document.getElementById('profile-av').innerText = user.u[0].toUpperCase();
+
+            document.getElementById('auth-wrapper').style.opacity = '0';
+            setTimeout(()=>document.getElementById('auth-wrapper').style.display='none', 500);
+        }
+
+        // --- NAV ---
+        function nav(t) {
+            document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
+            document.getElementById('tab-'+t).classList.add('active');
+            
+            document.querySelectorAll('.nav-btn, .nav-item-m').forEach(b=>b.classList.remove('active'));
+            
+            if(t==='scan') startCam(); else stopCam();
+        }
+
+        function openProfile() { document.getElementById('profile-modal').classList.add('active'); }
+        function closeModal(e, id) { 
+            if(!e || e.target.id === id || !id) document.querySelectorAll('.modal-overlay').forEach(m=>m.classList.remove('active'));
+        }
+
+        // --- CAMERA ---
+        const video = document.getElementById('video');
+        let stream = null;
+
+        async function startCam() {
+            if(stream) return;
+            try { stream = await navigator.mediaDevices.getUserMedia({video:{facingMode:'environment'}}); video.srcObject=stream; }
+            catch(e) { try{stream=await navigator.mediaDevices.getUserMedia({video:true}); video.srcObject=stream;}catch(err){toast('Cam Blocked','error');} }
+        }
+        function stopCam() { if(stream){stream.getTracks().forEach(t=>t.stop()); stream=null;} }
+
+        function fileUpload(input) {
+            if(input.files[0]) {
+                const r = new FileReader();
+                r.onload = e => processImage(e.target.result);
+                r.readAsDataURL(input.files[0]);
+            }
+        }
+
+        // --- VIDEO FRAME SCAN ---
+        async function scanVideoFrames(duration = 5000) {
+            const frames = [];
+            const canvas = document.getElementById("canvas");
+            const ctx = canvas.getContext("2d");
+            const btn = document.querySelector(".capture-btn");
+
+            // 🔴 START RECORDING UI
+            btn.classList.add("recording");
+
+            canvas.width = video.videoWidth;
+            canvas.height = video.videoHeight;
+
+            const start = Date.now();
+
+            while (Date.now() - start < duration) {
+                ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+                const blob = await new Promise(res =>
+                    canvas.toBlob(res, "image/jpeg", 0.8)
+                );
+
+                frames.push(blob);
+                await new Promise(r => setTimeout(r, 500));
+            }
+
+            // ⚪ STOP RECORDING UI
+            btn.classList.remove("recording");
+
+            sendFramesToBackend(frames);
+        }
+
+        function sendFramesToBackend(frames) {
+            const fd = new FormData();
+            frames.forEach((f, i) => fd.append("frames", f, `f${i}.jpg`));
+
+            fetch("http://127.0.0.1:5000/scan-video", {
+                method: "POST",
+                body: fd
+            })
+            .then(res => res.json())
+            .then(data => {
+
+                // ✅ STORE FULL REPORT DATA
+                currentResult = {
+                    name: data.medicine || "Unknown",
+                    status: data.expiry ? "Genuine" : "Suspicious",
+                    conf: data.expiry ? "High" : "Low",
+                    time: new Date().toLocaleTimeString(),
+                    image_url: data.image_url,
+                    img: null,
+
+                    // 🔥 THIS WAS MISSING
+                    medicine_info: {
+                        name: data.medicine || "Unknown",
+                        batch: data.batch || "Not detected",
+                        expiry: data.expiry || "Not detected",
+                        barcode: data.barcode || "Not detected"
+                    }
+                };
+
+                showResult(currentResult);
+            });
+}
+       
+        async function processImage(src) {
+            const blob = await (await fetch(src)).blob();
+            const formData = new FormData();
+            formData.append("image", blob, "scan.jpg");
+
+            // Assuming Flask medicine project is running on port 5000 as well
+            // If they conflict, change this port to match your Flask app.py
+            const res = await fetch("http://127.0.0.1:5000/predict", {
+                method: "POST",
+                body: formData
+            });
+
+            const data = await res.json();
+
+            currentResult = {
+                name: data.medicine_name,
+                status: data.status,
+                conf: data.confidence,
+                time: new Date().toLocaleTimeString(),
+                image_url: data.image_url,
+                img: src,
+                medicine_info: data.medicine_info
+            };
+
+            showResult(currentResult); 
+        }
+
+        function showResult(data) {
+            currentResult = data; // ✅ KEEP AS IS
+
+            scans++;
+            if (data.status !== 'Genuine') defects++;
+
+            document.getElementById('stat-scans').innerText = scans;
+            document.getElementById('stat-defects').innerText = defects;
+
+            history.unshift(currentResult);
+            updateLogs();
+            openModal(currentResult);
+        }
+
+        function openModal(data) {
+            currentResult = data;
+            document.getElementById('res-title').innerText = data.name;
+            const imageElement = document.getElementById('res-img');
+
+            // If backend image exists use it
+            if (data.image_url) {
+                imageElement.src = data.image_url;
+            }
+            // Otherwise fallback to captured image
+            else if (data.img) {
+                imageElement.src = data.img;
+            }
+            // If nothing available
+            else {
+                imageElement.src = "";
+            }
+            const color = data.status==='Genuine'?'#1ed760':'#e91429';
+            document.getElementById('res-details').innerHTML = `
+                Status: <span style="color:${color};font-weight:bold">${data.status.toUpperCase()}</span><br>
+                Confidence: ${data.conf}<br>Time: ${data.time}
+            `;
+            document.getElementById('result-modal').classList.add('active');
+        }
+
+        function sendFramesToBackend(frames) {
+            const fd = new FormData();
+            frames.forEach((f, i) => fd.append("frames", f, `f${i}.jpg`));
+
+            fetch("http://127.0.0.1:5000/scan-video", {
+                method: "POST",
+                body: fd
+            })
+            .then(res => res.json())
+            .then(data => {
+
+                console.log("FULL BACKEND DATA:", data);
+
+                currentResult = {
+                    name: data.medicine || "Unknown",
+                    status: data.medicine_info?.expiry ? "Genuine" : "Suspicious",
+                    conf: data.medicine_info?.expiry ? "High" : "Low",
+                    time: new Date().toLocaleTimeString(),
+                    img: null,
+
+                    // ✅ KEEP FULL DATABASE OBJECT
+                    medicine_info: data.medicine_info || {}
+                };
+
+                showResult(currentResult);
+            });
+        }
+
+        function updateLogs() {
+            const list = document.getElementById('log-list');
+            const recent = document.getElementById('recent-list');
+            list.innerHTML = "";
+            recent.innerHTML = "";
+
+            history.forEach(d => {
+                const item = document.createElement('div');
+                item.className = 'log-item';
+
+                const status = d.status || "Unknown";
+
+                item.innerHTML = `
+                <div>
+                    <b>${d.name || "Unknown Medicine"}</b><br>
+                    <small style="color:#777">${d.time || ""}</small>
+                </div>
+                <div class="tag ${status.toLowerCase()}">${status}</div>
+                `;
+
+                item.onclick = () => openModal(d);
+                list.appendChild(item);
+
+                if (recent.children.length < 3) {
+                    const rItem = item.cloneNode(true);
+                    rItem.onclick = () => openModal(d);
+                    recent.appendChild(rItem);
+                }
+            });
+        }
+
+        // --- DOWNLOADS ---
+        function downloadSingleReport() {
+            console.log("PDF DATA:", currentResult);
+            if (currentResult.image_url) {
+            const img = new Image();
+            img.crossOrigin = "Anonymous";
+            img.src = currentResult.image_url;
+
+            img.onload = function () {
+                doc.addImage(img, "JPEG", 60, 45, 90, 50);
+                doc.save(`${fileName}_Medical_Report.pdf`);
+            };
+            return; // stop normal save
+        }
+
+            const doc = new window.jspdf.jsPDF();
+            if (currentResult.image_url) {
+                doc.addImage(currentResult.image_url, "JPEG", 140, 20, 50, 50);
+            }
+            const info = currentResult.medicine_info || {};
+
+            let y = 20;
+
+            // ---------------- MEDICINE IMAGE ----------------
+            if (currentResult.image_url) {
+                const img = new Image();
+                img.src = currentResult.image_url;
+
+                img.onload = function () {
+                    doc.addImage(img, "JPEG", 60, y, 90, 50);
+                    y += 60;
+                };
+            }
+
+            // ---------------- PROFESSIONAL HEADER ----------------
+            
+            doc.setFillColor(0, 102, 204);
+            doc.rect(0, 0, 210, 30, "F");
+
+            doc.setTextColor(255, 255, 255);
+            doc.setFont("helvetica", "bold");
+            doc.setFontSize(18);
+            doc.text("AI MEDICINE AUTHENTICATION REPORT", 105, 18, { align: "center" });
+
+            doc.setTextColor(0, 0, 0);
+            y = 40;
+
+            // ---------------- BASIC DETAILS ----------------
+            doc.setFont("helvetica", "bold");
+            doc.text("Patient / Medicine Details", 20, y);
+            y += 8;
+
+            doc.setFont("helvetica", "normal");
+            doc.text(
+                `Medicine Name : ${info.name || currentResult.name || currentResult.medicine || "N/A"}`,25,y); y += 6;
+            doc.text(`Generic Name  : ${info.generic_name || "N/A"}`, 25, y); y += 6;
+            doc.text(`Medicine Type : ${info.type || "N/A"}`, 25, y); y += 6;
+
+            function safeField(label, value) {
+                const text = `${label} : ${value || "Not detected"}`;
+                const lines = doc.splitTextToSize(text, 150);
+                doc.text(lines, 25, y);
+                y += lines.length * 6;
+            }
+
+            safeField("Batch Number", info.batch);
+            safeField("Expiry Date", info.expiry);
+            safeField("Barcode", info.barcode);
+
+            y += 8;
+            doc.line(20, y, 190, y);
+            y += 10;
+
+            // ---------------- SECTION HELPER ----------------
+            function section(title, content) {
+                if (y > 260) { doc.addPage(); y = 20; }
+
+                doc.setFillColor(240, 240, 240);
+                doc.rect(18, y - 5, 174, 8, "F");
+
+                doc.setFont("helvetica", "bold");
+                doc.text(title, 20, y);
+                y += 6;
+
+                doc.setFont("helvetica", "normal");
+
+                if (Array.isArray(content) && content.length) {
+                    content.forEach(item => {
+                        if (y > 270) { doc.addPage(); y = 20; }
+                        doc.text(`• ${item}`, 25, y);
+                        y += 6;
+                    });
+                } else {
+                    const text = doc.splitTextToSize(
+                        content || "As per manufacturer / Not available",
+                        160
+                    );
+                    doc.text(text, 25, y);
+                    y += text.length * 6;
+                }
+
+                y += 4;
+            }
+
+            // ---------------- MEDICAL INFORMATION ----------------
+            section("Indications / Uses", info.used_for);
+            section("Dosage & Administration", info.how_to_use);
+            section("Contraindications (When NOT to Use)", info.when_not_to_use);
+            section("Possible Side Effects", info.side_effects);
+            section("Storage Instructions", info.storage);
+            section("Prescription Requirement", info.prescription_required);
+
+            y += 6;
+            doc.line(20, y, 190, y);
+            y += 10;
+
+            // ---------------- FINAL VERDICT ----------------
+            if (y > 250) { doc.addPage(); y = 20; }
+
+            doc.setFillColor(
+                currentResult.status.toLowerCase() === "genuine" ? 200 : 255,
+                currentResult.status.toLowerCase() === "genuine" ? 255 : 200,
+                200
+            );
+
+            doc.rect(18, y - 5, 174, 22, "F");
+
+            doc.setFont("helvetica", "bold");
+            doc.text("FINAL VERDICT", 20, y);
+            y += 8;
+
+            doc.setFont("helvetica", "normal");
+            doc.text(`Status     : ${currentResult.status.toUpperCase()}`, 25, y);
+            y += 6;
+            doc.text(`Confidence : ${currentResult.conf || currentResult.confidence}`, 25, y);
+
+            y += 10;
+
+            y += 15;
+
+            doc.setFontSize(10);
+            doc.text(
+                "Disclaimer: This report is generated using AI-assisted medicine verification.\nAlways consult a registered medical practitioner before use.",
+                105,
+                y,
+                { align: "center" }
+            );
+
+            const fileName =
+                (info.name || currentResult.name || "Medicine_Report")
+                    .replace(/\s+/g, "_");
+
+            doc.save(`${fileName}_Medical_Report.pdf`);
+            toast("Doctor-style Medical Report Downloaded");
+        }
+
+        function exportHistoryPDF() {
+            if(!history.length) return toast('No data to export', 'error');
+            const doc = new window.jspdf.jsPDF();
+            doc.text("MedX Audit Log", 14, 20);
+            
+            const rows = history.map(h => [h.name, h.status, h.conf, h.time]);
+            
+            doc.autoTable({
+                head: [['Item', 'Status', 'Confidence', 'Time']],
+                body: rows,
+                startY: 30,
+                theme: 'grid',
+                headStyles: { fillColor: [30, 215, 96] }
+            });
+
+            doc.save('MedX_Full_Log.pdf');
+            toast('Logs Exported');
+        }
+
+        function toast(msg, type='success') {
+            const t = document.getElementById('toast');
+            t.innerText = msg;
+            t.className = `toast ${type==='error'?'error':''} visible`;
+            setTimeout(()=>t.className='toast', 3000);
+        }
+    </script>
+</body>
+</html>
