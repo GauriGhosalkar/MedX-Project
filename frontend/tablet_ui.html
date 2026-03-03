@@ -425,11 +425,6 @@
             <h2 id="res-title" style="margin-bottom:20px;">Result</h2>
             <img id="res-img" class="evidence-img" src="" alt="Scan">
             <div id="res-details" style="background:#222; padding:15px; border-radius:8px; margin-bottom:20px; line-height:1.6; color:#ccc; font-size:0.9rem;"></div>
-            
-            <button id="listen-btn" class="btn-auth" onclick="playAudio()" style="display:none; background:#333; color:var(--primary); border:1px solid var(--primary); margin-bottom:10px;">
-                🔊 Listen to Report
-            </button>
-            
             <button class="btn-auth" onclick="downloadSingleReport()">Download Report</button>
         </div>
     </div>
@@ -455,15 +450,6 @@
         // --- STATE ---
         let scans=0, defects=0, history=[], currentResult=null, currentUser={};
         
-        // --- AUDIO FEATURE LOGIC ---
-        function playAudio() {
-            if (currentResult && currentResult.audio_url) {
-                // Cache busting prevents the browser from playing an old audio file
-                let audio = new Audio(currentResult.audio_url + '?t=' + new Date().getTime());
-                audio.play();
-            }
-        }
-
         // --- AUTH LOGIC ---
         function toggleAuth(mode) {
             document.getElementById('login-form').style.display = mode==='login'?'block':'none';
@@ -665,10 +651,9 @@
                     conf: data.expiry ? "High" : "Low",
                     time: new Date().toLocaleTimeString(),
                     image_url: data.image_url,
-                    audio_url: data.audio_url, // Added audio URL
                     img: null,
 
-                    // medicine info
+                    // 🔥 THIS WAS MISSING
                     medicine_info: {
                         name: data.medicine || "Unknown",
                         batch: data.batch || "Not detected",
@@ -686,6 +671,8 @@
             const formData = new FormData();
             formData.append("image", blob, "scan.jpg");
 
+            // Assuming Flask medicine project is running on port 5000 as well
+            // If they conflict, change this port to match your Flask app.py
             const res = await fetch("http://127.0.0.1:5000/predict", {
                 method: "POST",
                 body: formData
@@ -699,7 +686,6 @@
                 conf: data.confidence,
                 time: new Date().toLocaleTimeString(),
                 image_url: data.image_url,
-                audio_url: data.audio_url, // Added audio URL
                 img: src,
                 medicine_info: data.medicine_info
             };
@@ -708,7 +694,7 @@
         }
 
         function showResult(data) {
-            currentResult = data; 
+            currentResult = data; // ✅ KEEP AS IS
 
             scans++;
             if (data.status !== 'Genuine') defects++;
@@ -726,30 +712,52 @@
             document.getElementById('res-title').innerText = data.name;
             const imageElement = document.getElementById('res-img');
 
+            // If backend image exists use it
             if (data.image_url) {
                 imageElement.src = data.image_url;
             }
+            // Otherwise fallback to captured image
             else if (data.img) {
                 imageElement.src = data.img;
             }
+            // If nothing available
             else {
                 imageElement.src = "";
             }
-            
-            // Show/Hide Audio Button
-            const listenBtn = document.getElementById('listen-btn');
-            if (data.audio_url) {
-                listenBtn.style.display = 'block';
-            } else {
-                listenBtn.style.display = 'none';
-            }
-
             const color = data.status==='Genuine'?'#1ed760':'#e91429';
             document.getElementById('res-details').innerHTML = `
                 Status: <span style="color:${color};font-weight:bold">${data.status.toUpperCase()}</span><br>
                 Confidence: ${data.conf}<br>Time: ${data.time}
             `;
             document.getElementById('result-modal').classList.add('active');
+        }
+
+        function sendFramesToBackend(frames) {
+            const fd = new FormData();
+            frames.forEach((f, i) => fd.append("frames", f, `f${i}.jpg`));
+
+            fetch("http://127.0.0.1:5000/scan-video", {
+                method: "POST",
+                body: fd
+            })
+            .then(res => res.json())
+            .then(data => {
+
+                console.log("FULL BACKEND DATA:", data);
+
+                currentResult = {
+                    name: data.medicine || "Unknown",
+                    status: data.medicine_info?.expiry ? "Genuine" : "Suspicious",
+                    conf: data.medicine_info?.expiry ? "High" : "Low",
+                    time: new Date().toLocaleTimeString(),
+                    img: null,
+
+                    // ✅ KEEP FULL DATABASE OBJECT
+                    medicine_info: data.medicine_info || {}
+                };
+
+                showResult(currentResult);
+            });
         }
 
         function updateLogs() {
@@ -795,7 +803,7 @@
                 doc.addImage(img, "JPEG", 60, 45, 90, 50);
                 doc.save(`${fileName}_Medical_Report.pdf`);
             };
-            return; 
+            return; // stop normal save
         }
 
             const doc = new window.jspdf.jsPDF();
@@ -806,6 +814,7 @@
 
             let y = 20;
 
+            // ---------------- MEDICINE IMAGE ----------------
             if (currentResult.image_url) {
                 const img = new Image();
                 img.src = currentResult.image_url;
@@ -815,6 +824,8 @@
                     y += 60;
                 };
             }
+
+            // ---------------- PROFESSIONAL HEADER ----------------
             
             doc.setFillColor(0, 102, 204);
             doc.rect(0, 0, 210, 30, "F");
@@ -827,6 +838,7 @@
             doc.setTextColor(0, 0, 0);
             y = 40;
 
+            // ---------------- BASIC DETAILS ----------------
             doc.setFont("helvetica", "bold");
             doc.text("Patient / Medicine Details", 20, y);
             y += 8;
@@ -852,6 +864,7 @@
             doc.line(20, y, 190, y);
             y += 10;
 
+            // ---------------- SECTION HELPER ----------------
             function section(title, content) {
                 if (y > 260) { doc.addPage(); y = 20; }
 
@@ -882,6 +895,7 @@
                 y += 4;
             }
 
+            // ---------------- MEDICAL INFORMATION ----------------
             section("Indications / Uses", info.used_for);
             section("Dosage & Administration", info.how_to_use);
             section("Contraindications (When NOT to Use)", info.when_not_to_use);
@@ -893,6 +907,7 @@
             doc.line(20, y, 190, y);
             y += 10;
 
+            // ---------------- FINAL VERDICT ----------------
             if (y > 250) { doc.addPage(); y = 20; }
 
             doc.setFillColor(
@@ -913,6 +928,7 @@
             doc.text(`Confidence : ${currentResult.conf || currentResult.confidence}`, 25, y);
 
             y += 10;
+
             y += 15;
 
             doc.setFontSize(10);
