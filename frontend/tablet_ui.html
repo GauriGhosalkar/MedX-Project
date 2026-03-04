@@ -819,10 +819,8 @@
                 const img = new Image();
                 img.src = currentResult.image_url;
 
-                img.onload = function () {
-                    doc.addImage(img, "JPEG", 60, y, 90, 50);
+                doc.addImage(currentResult.image_url, "JPEG", 60, y, 90, 50);
                     y += 60;
-                };
             }
 
             // ---------------- PROFESSIONAL HEADER ----------------
@@ -844,9 +842,16 @@
             y += 8;
 
             doc.setFont("helvetica", "normal");
-            doc.text(
-                `Medicine Name : ${info.name || currentResult.name || currentResult.medicine || "N/A"}`,25,y); y += 6;
-            doc.text(`Generic Name  : ${info.generic_name || "N/A"}`, 25, y); y += 6;
+           function addField(label, value) {
+                const text = `${label} : ${value || "Not detected"}`;
+                const lines = doc.splitTextToSize(text, 155);
+                doc.text(lines, 25, y);
+                y += lines.length * 7;   // dynamic height fix
+            }
+
+            addField("Medicine Name", info.name || currentResult.name || currentResult.medicine);
+            addField("Generic Name", info.generic_name);
+            addField("Medicine Type", info.type);
             doc.text(`Medicine Type : ${info.type || "N/A"}`, 25, y); y += 6;
 
             function safeField(label, value) {
@@ -866,33 +871,41 @@
 
             // ---------------- SECTION HELPER ----------------
             function section(title, content) {
-                if (y > 260) { doc.addPage(); y = 20; }
 
-                doc.setFillColor(240, 240, 240);
-                doc.rect(18, y - 5, 174, 8, "F");
+                if (y > 260) { 
+                    doc.addPage(); 
+                    y = 20; 
+                }
+
+                // Grey background (correct height)
+                doc.setFillColor(230, 230, 230);
+                doc.rect(20, y - 8, 170, 12, "F");
 
                 doc.setFont("helvetica", "bold");
-                doc.text(title, 20, y);
-                y += 6;
+                doc.setFontSize(13);
+                doc.text(title, 25, y - 1);
+
+                y += 12;  // Proper spacing after header
 
                 doc.setFont("helvetica", "normal");
+                doc.setFontSize(11);
 
                 if (Array.isArray(content) && content.length) {
                     content.forEach(item => {
-                        if (y > 270) { doc.addPage(); y = 20; }
-                        doc.text(`• ${item}`, 25, y);
-                        y += 6;
+                        const lines = doc.splitTextToSize("• " + item, 155);
+                        doc.text(lines, 30, y);
+                        y += lines.length * 7;
                     });
                 } else {
-                    const text = doc.splitTextToSize(
-                        content || "As per manufacturer / Not available",
+                    const lines = doc.splitTextToSize(
+                        content || "Not available",
                         160
                     );
-                    doc.text(text, 25, y);
-                    y += text.length * 6;
+                    doc.text(lines, 25, y);
+                    y += lines.length * 7;
                 }
 
-                y += 4;
+                y += 6;
             }
 
             // ---------------- MEDICAL INFORMATION ----------------
